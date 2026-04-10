@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>世界时间转换器 | World Time Converter</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #333;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    padding: 32px;
+  }
+  h1 { text-align: center; color: #2d3748; margin-bottom: 8px; font-size: 28px; }
+  .subtitle { text-align: center; color: #718096; margin-bottom: 24px; font-size: 14px; }
+  .panel {
+    background: #f7fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: all 0.2s;
+  }
+  .panel.active { border-color: #667eea; background: #edf2ff; }
+  .panel-label {
+    font-size: 12px; font-weight: 600; color: #667eea;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+  label { display: block; font-size: 13px; color: #4a5568; margin-bottom: 4px; font-weight: 500; }
+  input[type="date"], input[type="time"], input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e0;
+    border-radius: 8px;
+    font-size: 15px;
+    background: #fff;
+    font-family: inherit;
+  }
+  input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.15); }
+
+  /* Combobox */
+  .combo { position: relative; }
+  .combo-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #cbd5e0;
+    border-radius: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    margin-top: 4px;
+    display: none;
+  }
+  .combo-list.open { display: block; }
+  .combo-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 14px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .combo-item:last-child { border-bottom: none; }
+  .combo-item:hover, .combo-item.highlight { background: #edf2ff; }
+  .combo-item .tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #e2e8f0;
+    color: #4a5568;
+    margin-left: 8px;
+  }
+  .combo-item .tag.country { background: #fbd38d; color: #744210; }
+  .combo-item .tag.city { background: #bee3f8; color: #2c5282; }
+
+  .swap-btn {
+    display: block; margin: 0 auto 16px;
+    background: #667eea; color: white; border: none;
+    width: 48px; height: 48px; border-radius: 50%;
+    font-size: 22px; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(102,126,234,0.4);
+    transition: transform 0.2s;
+  }
+  .swap-btn:hover { transform: rotate(180deg); }
+  .result-display {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white; padding: 18px; border-radius: 10px; margin-top: 10px;
+  }
+  .result-time { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+  .result-date { font-size: 14px; opacity: 0.9; }
+  .result-tz { font-size: 12px; opacity: 0.8; margin-top: 6px; }
+  .footer {
+    text-align: center; margin-top: 20px; padding-top: 16px;
+    border-top: 1px solid #e2e8f0; font-size: 12px; color: #a0aec0;
+  }
+  .quick-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip {
+    background: #fff; border: 1px solid #cbd5e0;
+    border-radius: 20px; padding: 4px 12px;
+    font-size: 12px; cursor: pointer; transition: all 0.15s;
+  }
+  .chip:hover { background: #667eea; color: white; border-color: #667eea; }
+  .hint { font-size: 11px; color: #a0aec0; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🌍 世界时间转换器</h1>
+  <p class="subtitle">World Time Converter — 外贸客户时差助手</p>
+
+  <!-- Panel A: Source -->
+  <div class="panel active" id="panelA">
+    <div class="panel-label">📍 源时间 Source Time</div>
+    <label>国家 / 城市 (Type to search, e.g. "g" → Germany)</label>
+    <div class="combo">
+      <input type="text" id="inputA" placeholder="输入国家或城市名，例如 germany / 土耳其 / istanbul" autocomplete="off">
+      <div class="combo-list" id="listA"></div>
+    </div>
+    <div class="hint" id="hintA"></div>
+    <div class="quick-pick">
+      <span class="chip" data-target="A" data-tz="Asia/Shanghai" data-label="中国 China (北京)">中国</span>
+      <span class="chip" data-target="A" data-tz="Europe/Istanbul" data-label="土耳其 Turkey (安卡拉)">土耳其</span>
+      <span class="chip" data-target="A" data-tz="America/New_York" data-label="美国 USA (华盛顿)">美国</span>
+      <span class="chip" data-target="A" data-tz="Europe/London" data-label="英国 UK (伦敦)">英国</span>
+      <span class="chip" data-target="A" data-tz="Europe/Berlin" data-label="德国 Germany (柏林)">德国</span>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <div>
+        <label>日期 Date</label>
+        <input type="date" id="dateA">
+      </div>
+      <div>
+        <label>时间 Time</label>
+        <input type="time" id="timeA">
+      </div>
+    </div>
+  </div>
+
+  <button class="swap-btn" id="swapBtn" title="交换 Swap">⇅</button>
+
+  <!-- Panel B: Target -->
+  <div class="panel" id="panelB">
+    <div class="panel-label">🎯 目标时间 Target Time</div>
+    <label>国家 / 城市 (Type to search)</label>
+    <div class="combo">
+      <input type="text" id="inputB" placeholder="输入国家或城市名" autocomplete="off">
+      <div class="combo-list" id="listB"></div>
+    </div>
+    <div class="hint" id="hintB"></div>
+    <div class="quick-pick">
+      <span class="chip" data-target="B" data-tz="Asia/Shanghai" data-label="中国 China (北京)">中国</span>
+      <span class="chip" data-target="B" data-tz="Europe/Istanbul" data-label="土耳其 Turkey (安卡拉)">土耳其</span>
+      <span class="chip" data-target="B" data-tz="America/New_York" data-label="美国 USA (华盛顿)">美国</span>
+      <span class="chip" data-target="B" data-tz="Europe/London" data-label="英国 UK (伦敦)">英国</span>
+      <span class="chip" data-target="B" data-tz="Asia/Tokyo" data-label="日本 Japan (东京)">日本</span>
+    </div>
+    <div class="result-display">
+      <div class="result-time" id="resultTime">--:--</div>
+      <div class="result-date" id="resultDate">----</div>
+      <div class="result-tz" id="resultTz"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    💡 提示：输入国家首字母（如 g → Germany）可快速筛选，选择国家默认使用该国首都时间。↑↓ 方向键选择，回车确认。
+  </div>
+</div>
+
+<script>
+// ===== Countries (default to capital timezone) =====
+const COUNTRIES = [
+  // Asia
+  {zh:"中国", en:"China", capital:"Beijing 北京", tz:"Asia/Shanghai"},
+  {zh:"日本", en:"Japan", capital:"Tokyo 东京", tz:"Asia/Tokyo"},
+  {zh:"韩国", en:"South Korea", capital:"Seoul 首尔", tz:"Asia/Seoul"},
+  {zh:"朝鲜", en:"North Korea", capital:"Pyongyang 平壤", tz:"Asia/Pyongyang"},
+  {zh:"蒙古", en:"Mongolia", capital:"Ulaanbaatar 乌兰巴托", tz:"Asia/Ulaanbaatar"},
+  {zh:"新加坡", en:"Singapore", capital:"Singapore", tz:"Asia/Singapore"},
+  {zh:"马来西亚", en:"Malaysia", capital:"Kuala Lumpur 吉隆坡", tz:"Asia/Kuala_Lumpur"},
+  {zh:"泰国", en:"Thailand", capital:"Bangkok 曼谷", tz:"Asia/Bangkok"},
+  {zh:"越南", en:"Vietnam", capital:"Hanoi 河内", tz:"Asia/Ho_Chi_Minh"},
+  {zh:"印度尼西亚", en:"Indonesia", capital:"Jakarta 雅加达", tz:"Asia/Jakarta"},
+  {zh:"菲律宾", en:"Philippines", capital:"Manila 马尼拉", tz:"Asia/Manila"},
+  {zh:"柬埔寨", en:"Cambodia", capital:"Phnom Penh 金边", tz:"Asia/Phnom_Penh"},
+  {zh:"老挝", en:"Laos", capital:"Vientiane 万象", tz:"Asia/Vientiane"},
+  {zh:"缅甸", en:"Myanmar", capital:"Naypyidaw 内比都", tz:"Asia/Yangon"},
+  {zh:"印度", en:"India", capital:"New Delhi 新德里", tz:"Asia/Kolkata"},
+  {zh:"巴基斯坦", en:"Pakistan", capital:"Islamabad 伊斯兰堡", tz:"Asia/Karachi"},
+  {zh:"孟加拉国", en:"Bangladesh", capital:"Dhaka 达卡", tz:"Asia/Dhaka"},
+  {zh:"斯里兰卡", en:"Sri Lanka", capital:"Colombo 科伦坡", tz:"Asia/Colombo"},
+  {zh:"尼泊尔", en:"Nepal", capital:"Kathmandu 加德满都", tz:"Asia/Kathmandu"},
+  {zh:"阿富汗", en:"Afghanistan", capital:"Kabul 喀布尔", tz:"Asia/Kabul"},
+  {zh:"哈萨克斯坦", en:"Kazakhstan", capital:"Astana 阿斯塔纳", tz:"Asia/Almaty"},
+  {zh:"乌兹别克斯坦", en:"Uzbekistan", capital:"Tashkent 塔什干", tz:"Asia/Tashkent"},
+  // Middle East
+  {zh:"土耳其", en:"Turkey", capital:"Ankara 安卡拉", tz:"Europe/Istanbul"},
+  {zh:"阿联酋", en:"UAE United Arab Emirates", capital:"Abu Dhabi 阿布扎比", tz:"Asia/Dubai"},
+  {zh:"沙特阿拉伯", en:"Saudi Arabia", capital:"Riyadh 利雅得", tz:"Asia/Riyadh"},
+  {zh:"卡塔尔", en:"Qatar", capital:"Doha 多哈", tz:"Asia/Qatar"},
+  {zh:"科威特", en:"Kuwait", capital:"Kuwait City 科威特城", tz:"Asia/Kuwait"},
+  {zh:"巴林", en:"Bahrain", capital:"Manama 麦纳麦", tz:"Asia/Bahrain"},
+  {zh:"阿曼", en:"Oman", capital:"Muscat 马斯喀特", tz:"Asia/Muscat"},
+  {zh:"伊朗", en:"Iran", capital:"Tehran 德黑兰", tz:"Asia/Tehran"},
+  {zh:"伊拉克", en:"Iraq", capital:"Baghdad 巴格达", tz:"Asia/Baghdad"},
+  {zh:"以色列", en:"Israel", capital:"Jerusalem 耶路撒冷", tz:"Asia/Jerusalem"},
+  {zh:"黎巴嫩", en:"Lebanon", capital:"Beirut 贝鲁特", tz:"Asia/Beirut"},
+  {zh:"约旦", en:"Jordan", capital:"Amman 安曼", tz:"Asia/Amman"},
+  {zh:"叙利亚", en:"Syria", capital:"Damascus 大马士革", tz:"Asia/Damascus"},
+  {zh:"也门", en:"Yemen", capital:"Sanaa 萨那", tz:"Asia/Aden"},
+  // Europe
+  {zh:"英国", en:"UK United Kingdom Britain", capital:"London 伦敦", tz:"Europe/London"},
+  {zh:"爱尔兰", en:"Ireland", capital:"Dublin 都柏林", tz:"Europe/Dublin"},
+  {zh:"法国", en:"France", capital:"Paris 巴黎", tz:"Europe/Paris"},
+  {zh:"德国", en:"Germany", capital:"Berlin 柏林", tz:"Europe/Berlin"},
+  {zh:"意大利", en:"Italy", capital:"Rome 罗马", tz:"Europe/Rome"},
+  {zh:"西班牙", en:"Spain", capital:"Madrid 马德里", tz:"Europe/Madrid"},
+  {zh:"葡萄牙", en:"Portugal", capital:"Lisbon 里斯本", tz:"Europe/Lisbon"},
+  {zh:"荷兰", en:"Netherlands Holland", capital:"Amsterdam 阿姆斯特丹", tz:"Europe/Amsterdam"},
+  {zh:"比利时", en:"Belgium", capital:"Brussels 布鲁塞尔", tz:"Europe/Brussels"},
+  {zh:"卢森堡", en:"Luxembourg", capital:"Luxembourg 卢森堡", tz:"Europe/Luxembourg"},
+  {zh:"瑞士", en:"Switzerland", capital:"Bern 伯尔尼", tz:"Europe/Zurich"},
+  {zh:"奥地利", en:"Austria", capital:"Vienna 维也纳", tz:"Europe/Vienna"},
+  {zh:"瑞典", en:"Sweden", capital:"Stockholm 斯德哥尔摩", tz:"Europe/Stockholm"},
+  {zh:"挪威", en:"Norway", capital:"Oslo 奥斯陆", tz:"Europe/Oslo"},
+  {zh:"丹麦", en:"Denmark", capital:"Copenhagen 哥本哈根", tz:"Europe/Copenhagen"},
+  {zh:"芬兰", en:"Finland", capital:"Helsinki 赫尔辛基", tz:"Europe/Helsinki"},
+  {zh:"冰岛", en:"Iceland", capital:"Reykjavik 雷克雅未克", tz:"Atlantic/Reykjavik"},
+  {zh:"波兰", en:"Poland", capital:"Warsaw 华沙", tz:"Europe/Warsaw"},
+  {zh:"捷克", en:"Czech Republic Czechia", capital:"Prague 布拉格", tz:"Europe/Prague"},
+  {zh:"斯洛伐克", en:"Slovakia", capital:"Bratislava 布拉迪斯拉发", tz:"Europe/Bratislava"},
+  {zh:"匈牙利", en:"Hungary", capital:"Budapest 布达佩斯", tz:"Europe/Budapest"},
+  {zh:"罗马尼亚", en:"Romania", capital:"Bucharest 布加勒斯特", tz:"Europe/Bucharest"},
+  {zh:"保加利亚", en:"Bulgaria", capital:"Sofia 索非亚", tz:"Europe/Sofia"},
+  {zh:"希腊", en:"Greece", capital:"Athens 雅典", tz:"Europe/Athens"},
+  {zh:"塞尔维亚", en:"Serbia", capital:"Belgrade 贝尔格莱德", tz:"Europe/Belgrade"},
+  {zh:"克罗地亚", en:"Croatia", capital:"Zagreb 萨格勒布", tz:"Europe/Zagreb"},
+  {zh:"乌克兰", en:"Ukraine", capital:"Kyiv 基辅", tz:"Europe/Kyiv"},
+  {zh:"白俄罗斯", en:"Belarus", capital:"Minsk 明斯克", tz:"Europe/Minsk"},
+  {zh:"俄罗斯", en:"Russia", capital:"Moscow 莫斯科", tz:"Europe/Moscow"},
+  // Africa
+  {zh:"埃及", en:"Egypt", capital:"Cairo 开罗", tz:"Africa/Cairo"},
+  {zh:"摩洛哥", en:"Morocco", capital:"Rabat 拉巴特", tz:"Africa/Casablanca"},
+  {zh:"阿尔及利亚", en:"Algeria", capital:"Algiers 阿尔及尔", tz:"Africa/Algiers"},
+  {zh:"突尼斯", en:"Tunisia", capital:"Tunis 突尼斯城", tz:"Africa/Tunis"},
+  {zh:"利比亚", en:"Libya", capital:"Tripoli 的黎波里", tz:"Africa/Tripoli"},
+  {zh:"苏丹", en:"Sudan", capital:"Khartoum 喀土穆", tz:"Africa/Khartoum"},
+  {zh:"埃塞俄比亚", en:"Ethiopia", capital:"Addis Ababa 亚的斯亚贝巴", tz:"Africa/Addis_Ababa"},
+  {zh:"肯尼亚", en:"Kenya", capital:"Nairobi 内罗毕", tz:"Africa/Nairobi"},
+  {zh:"坦桑尼亚", en:"Tanzania", capital:"Dodoma 多多马", tz:"Africa/Dar_es_Salaam"},
+  {zh:"尼日利亚", en:"Nigeria", capital:"Abuja 阿布贾", tz:"Africa/Lagos"},
+  {zh:"加纳", en:"Ghana", capital:"Accra 阿克拉", tz:"Africa/Accra"},
+  {zh:"塞内加尔", en:"Senegal", capital:"Dakar 达喀尔", tz:"Africa/Dakar"},
+  {zh:"南非", en:"South Africa", capital:"Pretoria 比勒陀利亚", tz:"Africa/Johannesburg"},
+  {zh:"津巴布韦", en:"Zimbabwe", capital:"Harare 哈拉雷", tz:"Africa/Harare"},
+  {zh:"安哥拉", en:"Angola", capital:"Luanda 罗安达", tz:"Africa/Luanda"},
+  // Americas
+  {zh:"美国", en:"USA United States America", capital:"Washington DC 华盛顿", tz:"America/New_York"},
+  {zh:"加拿大", en:"Canada", capital:"Ottawa 渥太华", tz:"America/Toronto"},
+  {zh:"墨西哥", en:"Mexico", capital:"Mexico City 墨西哥城", tz:"America/Mexico_City"},
+  {zh:"古巴", en:"Cuba", capital:"Havana 哈瓦那", tz:"America/Havana"},
+  {zh:"牙买加", en:"Jamaica", capital:"Kingston 金斯敦", tz:"America/Jamaica"},
+  {zh:"巴拿马", en:"Panama", capital:"Panama City 巴拿马城", tz:"America/Panama"},
+  {zh:"哥斯达黎加", en:"Costa Rica", capital:"San José 圣何塞", tz:"America/Costa_Rica"},
+  {zh:"巴西", en:"Brazil", capital:"Brasília 巴西利亚", tz:"America/Sao_Paulo"},
+  {zh:"阿根廷", en:"Argentina", capital:"Buenos Aires 布宜诺斯艾利斯", tz:"America/Argentina/Buenos_Aires"},
+  {zh:"智利", en:"Chile", capital:"Santiago 圣地亚哥", tz:"America/Santiago"},
+  {zh:"秘鲁", en:"Peru", capital:"Lima 利马", tz:"America/Lima"},
+  {zh:"哥伦比亚", en:"Colombia", capital:"Bogotá 波哥大", tz:"America/Bogota"},
+  {zh:"委内瑞拉", en:"Venezuela", capital:"Caracas 加拉加斯", tz:"America/Caracas"},
+  {zh:"厄瓜多尔", en:"Ecuador", capital:"Quito 基多", tz:"America/Guayaquil"},
+  {zh:"乌拉圭", en:"Uruguay", capital:"Montevideo 蒙得维的亚", tz:"America/Montevideo"},
+  {zh:"巴拉圭", en:"Paraguay", capital:"Asunción 亚松森", tz:"America/Asuncion"},
+  {zh:"玻利维亚", en:"Bolivia", capital:"La Paz 拉巴斯", tz:"America/La_Paz"},
+  // Oceania
+  {zh:"澳大利亚", en:"Australia", capital:"Canberra 堪培拉", tz:"Australia/Sydney"},
+  {zh:"新西兰", en:"New Zealand", capital:"Wellington 惠灵顿", tz:"Pacific/Auckland"},
+  {zh:"斐济", en:"Fiji", capital:"Suva 苏瓦", tz:"Pacific/Fiji"},
+  {zh:"巴布亚新几内亚", en:"Papua New Guinea", capital:"Port Moresby 莫尔兹比港", tz:"Pacific/Port_Moresby"},
+  {zh:"萨摩亚", en:"Samoa", capital:"Apia 阿皮亚", tz:"Pacific/Apia"},
+  {zh:"汤加", en:"Tonga", capital:"Nukuʻalofa 努库阿洛法", tz:"Pacific/Tongatapu"},
+  {zh:"瓦努阿图", en:"Vanuatu", capital:"Port Vila 维拉港", tz:"Pacific/Efate"},
+  {zh:"所罗门群岛", en:"Solomon Islands", capital:"Honiara 霍尼亚拉", tz:"Pacific/Guadalcanal"},
+  // More Europe
+  {zh:"马耳他", en:"Malta", capital:"Valletta 瓦莱塔", tz:"Europe/Malta"},
+  {zh:"塞浦路斯", en:"Cyprus", capital:"Nicosia 尼科西亚", tz:"Asia/Nicosia"},
+  {zh:"爱沙尼亚", en:"Estonia", capital:"Tallinn 塔林", tz:"Europe/Tallinn"},
+  {zh:"拉脱维亚", en:"Latvia", capital:"Riga 里加", tz:"Europe/Riga"},
+  {zh:"立陶宛", en:"Lithuania", capital:"Vilnius 维尔纽斯", tz:"Europe/Vilnius"},
+  {zh:"斯洛文尼亚", en:"Slovenia", capital:"Ljubljana 卢布尔雅那", tz:"Europe/Ljubljana"},
+  {zh:"阿尔巴尼亚", en:"Albania", capital:"Tirana 地拉那", tz:"Europe/Tirane"},
+  {zh:"北马其顿", en:"North Macedonia", capital:"Skopje 斯科普里", tz:"Europe/Skopje"},
+  {zh:"黑山", en:"Montenegro", capital:"Podgorica 波德戈里察", tz:"Europe/Podgorica"},
+  {zh:"波斯尼亚和黑塞哥维那", en:"Bosnia and Herzegovina", capital:"Sarajevo 萨拉热窝", tz:"Europe/Sarajevo"},
+  {zh:"摩尔多瓦", en:"Moldova", capital:"Chișinău 基希讷乌", tz:"Europe/Chisinau"},
+  {zh:"摩纳哥", en:"Monaco", capital:"Monaco 摩纳哥", tz:"Europe/Monaco"},
+  {zh:"安道尔", en:"Andorra", capital:"Andorra la Vella 老安道尔", tz:"Europe/Andorra"},
+  {zh:"列支敦士登", en:"Liechtenstein", capital:"Vaduz 瓦杜兹", tz:"Europe/Vaduz"},
+  {zh:"圣马力诺", en:"San Marino", capital:"San Marino 圣马力诺", tz:"Europe/San_Marino"},
+  {zh:"梵蒂冈", en:"Vatican City", capital:"Vatican 梵蒂冈", tz:"Europe/Vatican"},
+  // More Caucasus/Central Asia
+  {zh:"格鲁吉亚", en:"Georgia (country)", capital:"Tbilisi 第比利斯", tz:"Asia/Tbilisi"},
+  {zh:"亚美尼亚", en:"Armenia", capital:"Yerevan 埃里温", tz:"Asia/Yerevan"},
+  {zh:"阿塞拜疆", en:"Azerbaijan", capital:"Baku 巴库", tz:"Asia/Baku"},
+  {zh:"土库曼斯坦", en:"Turkmenistan", capital:"Ashgabat 阿什哈巴德", tz:"Asia/Ashgabat"},
+  {zh:"吉尔吉斯斯坦", en:"Kyrgyzstan", capital:"Bishkek 比什凯克", tz:"Asia/Bishkek"},
+  {zh:"塔吉克斯坦", en:"Tajikistan", capital:"Dushanbe 杜尚别", tz:"Asia/Dushanbe"},
+  {zh:"不丹", en:"Bhutan", capital:"Thimphu 廷布", tz:"Asia/Thimphu"},
+  {zh:"马尔代夫", en:"Maldives", capital:"Malé 马累", tz:"Indian/Maldives"},
+  {zh:"文莱", en:"Brunei", capital:"Bandar Seri Begawan 斯里巴加湾市", tz:"Asia/Brunei"},
+  {zh:"东帝汶", en:"Timor-Leste East Timor", capital:"Dili 帝力", tz:"Asia/Dili"},
+  // More Africa
+  {zh:"毛里求斯", en:"Mauritius", capital:"Port Louis 路易港", tz:"Indian/Mauritius"},
+  {zh:"马达加斯加", en:"Madagascar", capital:"Antananarivo 塔那那利佛", tz:"Indian/Antananarivo"},
+  {zh:"莫桑比克", en:"Mozambique", capital:"Maputo 马普托", tz:"Africa/Maputo"},
+  {zh:"赞比亚", en:"Zambia", capital:"Lusaka 卢萨卡", tz:"Africa/Lusaka"},
+  {zh:"乌干达", en:"Uganda", capital:"Kampala 坎帕拉", tz:"Africa/Kampala"},
+  {zh:"卢旺达", en:"Rwanda", capital:"Kigali 基加利", tz:"Africa/Kigali"},
+  {zh:"布隆迪", en:"Burundi", capital:"Gitega 基特加", tz:"Africa/Bujumbura"},
+  {zh:"喀麦隆", en:"Cameroon", capital:"Yaoundé 雅温得", tz:"Africa/Douala"},
+  {zh:"科特迪瓦", en:"Ivory Coast Côte d'Ivoire", capital:"Yamoussoukro 亚穆苏克罗", tz:"Africa/Abidjan"},
+  {zh:"马里", en:"Mali", capital:"Bamako 巴马科", tz:"Africa/Bamako"},
+  {zh:"布基纳法索", en:"Burkina Faso", capital:"Ouagadougou 瓦加杜古", tz:"Africa/Ouagadougou"},
+  {zh:"尼日尔", en:"Niger", capital:"Niamey 尼亚美", tz:"Africa/Niamey"},
+  {zh:"乍得", en:"Chad", capital:"N'Djamena 恩贾梅纳", tz:"Africa/Ndjamena"},
+  {zh:"刚果民主共和国", en:"DR Congo Democratic Republic", capital:"Kinshasa 金沙萨", tz:"Africa/Kinshasa"},
+  {zh:"刚果共和国", en:"Republic of Congo", capital:"Brazzaville 布拉柴维尔", tz:"Africa/Brazzaville"},
+  {zh:"加蓬", en:"Gabon", capital:"Libreville 利伯维尔", tz:"Africa/Libreville"},
+  {zh:"纳米比亚", en:"Namibia", capital:"Windhoek 温得和克", tz:"Africa/Windhoek"},
+  {zh:"博茨瓦纳", en:"Botswana", capital:"Gaborone 哈博罗内", tz:"Africa/Gaborone"},
+  {zh:"索马里", en:"Somalia", capital:"Mogadishu 摩加迪沙", tz:"Africa/Mogadishu"},
+  // More Central America & Caribbean
+  {zh:"多米尼加共和国", en:"Dominican Republic", capital:"Santo Domingo 圣多明各", tz:"America/Santo_Domingo"},
+  {zh:"海地", en:"Haiti", capital:"Port-au-Prince 太子港", tz:"America/Port-au-Prince"},
+  {zh:"巴哈马", en:"Bahamas", capital:"Nassau 拿骚", tz:"America/Nassau"},
+  {zh:"特立尼达和多巴哥", en:"Trinidad and Tobago", capital:"Port of Spain 西班牙港", tz:"America/Port_of_Spain"},
+  {zh:"危地马拉", en:"Guatemala", capital:"Guatemala City 危地马拉城", tz:"America/Guatemala"},
+  {zh:"洪都拉斯", en:"Honduras", capital:"Tegucigalpa 特古西加尔巴", tz:"America/Tegucigalpa"},
+  {zh:"萨尔瓦多", en:"El Salvador", capital:"San Salvador 圣萨尔瓦多", tz:"America/El_Salvador"},
+  {zh:"尼加拉瓜", en:"Nicaragua", capital:"Managua 马那瓜", tz:"America/Managua"},
+  {zh:"伯利兹", en:"Belize", capital:"Belmopan 贝尔莫潘", tz:"America/Belize"},
+  {zh:"圭亚那", en:"Guyana", capital:"Georgetown 乔治敦", tz:"America/Guyana"},
+  {zh:"苏里南", en:"Suriname", capital:"Paramaribo 帕拉马里博", tz:"America/Paramaribo"},
+];
+
+// ===== Cities =====
+const CITIES = [
+  // China
+  {zh:"北京", en:"Beijing", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"上海", en:"Shanghai", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"广州", en:"Guangzhou", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"深圳", en:"Shenzhen", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"成都", en:"Chengdu", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"杭州", en:"Hangzhou", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"西安", en:"Xi'an", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"重庆", en:"Chongqing", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"乌鲁木齐", en:"Urumqi", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"香港", en:"Hong Kong", country:"中国香港", tz:"Asia/Hong_Kong"},
+  {zh:"台北", en:"Taipei", country:"中国台湾", tz:"Asia/Taipei"},
+  {zh:"澳门", en:"Macau", country:"中国澳门", tz:"Asia/Macau"},
+  // Asia cities
+  {zh:"大阪", en:"Osaka", country:"日本 Japan", tz:"Asia/Tokyo"},
+  {zh:"名古屋", en:"Nagoya", country:"日本 Japan", tz:"Asia/Tokyo"},
+  {zh:"福冈", en:"Fukuoka", country:"日本 Japan", tz:"Asia/Tokyo"},
+  {zh:"札幌", en:"Sapporo", country:"日本 Japan", tz:"Asia/Tokyo"},
+  {zh:"釜山", en:"Busan", country:"韩国 South Korea", tz:"Asia/Seoul"},
+  {zh:"仁川", en:"Incheon", country:"韩国 South Korea", tz:"Asia/Seoul"},
+  {zh:"孟买", en:"Mumbai", country:"印度 India", tz:"Asia/Kolkata"},
+  {zh:"班加罗尔", en:"Bangalore Bengaluru", country:"印度 India", tz:"Asia/Kolkata"},
+  {zh:"加尔各答", en:"Kolkata", country:"印度 India", tz:"Asia/Kolkata"},
+  {zh:"金奈", en:"Chennai", country:"印度 India", tz:"Asia/Kolkata"},
+  {zh:"海得拉巴", en:"Hyderabad", country:"印度 India", tz:"Asia/Kolkata"},
+  {zh:"拉合尔", en:"Lahore", country:"巴基斯坦 Pakistan", tz:"Asia/Karachi"},
+  {zh:"卡拉奇", en:"Karachi", country:"巴基斯坦 Pakistan", tz:"Asia/Karachi"},
+  {zh:"胡志明市", en:"Ho Chi Minh City Saigon", country:"越南 Vietnam", tz:"Asia/Ho_Chi_Minh"},
+  {zh:"清迈", en:"Chiang Mai", country:"泰国 Thailand", tz:"Asia/Bangkok"},
+  {zh:"巴厘岛", en:"Bali Denpasar", country:"印度尼西亚 Indonesia", tz:"Asia/Makassar"},
+  {zh:"宿务", en:"Cebu", country:"菲律宾 Philippines", tz:"Asia/Manila"},
+  // Middle East
+  {zh:"伊斯坦布尔", en:"Istanbul Constantinople", country:"土耳其 Turkey", tz:"Europe/Istanbul"},
+  {zh:"伊兹密尔", en:"Izmir", country:"土耳其 Turkey", tz:"Europe/Istanbul"},
+  {zh:"迪拜", en:"Dubai", country:"阿联酋 UAE", tz:"Asia/Dubai"},
+  {zh:"沙迦", en:"Sharjah", country:"阿联酋 UAE", tz:"Asia/Dubai"},
+  {zh:"吉达", en:"Jeddah", country:"沙特阿拉伯 Saudi Arabia", tz:"Asia/Riyadh"},
+  {zh:"麦加", en:"Mecca", country:"沙特阿拉伯 Saudi Arabia", tz:"Asia/Riyadh"},
+  {zh:"特拉维夫", en:"Tel Aviv", country:"以色列 Israel", tz:"Asia/Jerusalem"},
+  // Europe
+  {zh:"曼彻斯特", en:"Manchester", country:"英国 UK", tz:"Europe/London"},
+  {zh:"爱丁堡", en:"Edinburgh", country:"英国 UK", tz:"Europe/London"},
+  {zh:"伯明翰", en:"Birmingham", country:"英国 UK", tz:"Europe/London"},
+  {zh:"利物浦", en:"Liverpool", country:"英国 UK", tz:"Europe/London"},
+  {zh:"马赛", en:"Marseille", country:"法国 France", tz:"Europe/Paris"},
+  {zh:"里昂", en:"Lyon", country:"法国 France", tz:"Europe/Paris"},
+  {zh:"慕尼黑", en:"Munich München", country:"德国 Germany", tz:"Europe/Berlin"},
+  {zh:"法兰克福", en:"Frankfurt", country:"德国 Germany", tz:"Europe/Berlin"},
+  {zh:"汉堡", en:"Hamburg", country:"德国 Germany", tz:"Europe/Berlin"},
+  {zh:"杜塞尔多夫", en:"Düsseldorf", country:"德国 Germany", tz:"Europe/Berlin"},
+  {zh:"科隆", en:"Cologne Köln", country:"德国 Germany", tz:"Europe/Berlin"},
+  {zh:"斯图加特", en:"Stuttgart", country:"德国 Germany", tz:"Europe/Berlin"},
+  {zh:"米兰", en:"Milan Milano", country:"意大利 Italy", tz:"Europe/Rome"},
+  {zh:"威尼斯", en:"Venice Venezia", country:"意大利 Italy", tz:"Europe/Rome"},
+  {zh:"那不勒斯", en:"Naples Napoli", country:"意大利 Italy", tz:"Europe/Rome"},
+  {zh:"巴塞罗那", en:"Barcelona", country:"西班牙 Spain", tz:"Europe/Madrid"},
+  {zh:"鹿特丹", en:"Rotterdam", country:"荷兰 Netherlands", tz:"Europe/Amsterdam"},
+  {zh:"苏黎世", en:"Zurich", country:"瑞士 Switzerland", tz:"Europe/Zurich"},
+  {zh:"日内瓦", en:"Geneva", country:"瑞士 Switzerland", tz:"Europe/Zurich"},
+  {zh:"圣彼得堡", en:"Saint Petersburg", country:"俄罗斯 Russia", tz:"Europe/Moscow"},
+  {zh:"叶卡捷琳堡", en:"Yekaterinburg", country:"俄罗斯 Russia", tz:"Asia/Yekaterinburg"},
+  {zh:"新西伯利亚", en:"Novosibirsk", country:"俄罗斯 Russia", tz:"Asia/Novosibirsk"},
+  {zh:"符拉迪沃斯托克", en:"Vladivostok", country:"俄罗斯 Russia", tz:"Asia/Vladivostok"},
+  // Africa
+  {zh:"拉各斯", en:"Lagos", country:"尼日利亚 Nigeria", tz:"Africa/Lagos"},
+  {zh:"开普敦", en:"Cape Town", country:"南非 South Africa", tz:"Africa/Johannesburg"},
+  {zh:"约翰内斯堡", en:"Johannesburg", country:"南非 South Africa", tz:"Africa/Johannesburg"},
+  {zh:"卡萨布兰卡", en:"Casablanca", country:"摩洛哥 Morocco", tz:"Africa/Casablanca"},
+  // Americas
+  {zh:"纽约", en:"New York NYC", country:"美国 USA", tz:"America/New_York"},
+  {zh:"波士顿", en:"Boston", country:"美国 USA", tz:"America/New_York"},
+  {zh:"迈阿密", en:"Miami", country:"美国 USA", tz:"America/New_York"},
+  {zh:"亚特兰大", en:"Atlanta", country:"美国 USA", tz:"America/New_York"},
+  {zh:"费城", en:"Philadelphia", country:"美国 USA", tz:"America/New_York"},
+  {zh:"芝加哥", en:"Chicago", country:"美国 USA", tz:"America/Chicago"},
+  {zh:"休斯顿", en:"Houston", country:"美国 USA", tz:"America/Chicago"},
+  {zh:"达拉斯", en:"Dallas", country:"美国 USA", tz:"America/Chicago"},
+  {zh:"丹佛", en:"Denver", country:"美国 USA", tz:"America/Denver"},
+  {zh:"凤凰城", en:"Phoenix", country:"美国 USA", tz:"America/Phoenix"},
+  {zh:"洛杉矶", en:"Los Angeles LA", country:"美国 USA", tz:"America/Los_Angeles"},
+  {zh:"旧金山", en:"San Francisco", country:"美国 USA", tz:"America/Los_Angeles"},
+  {zh:"西雅图", en:"Seattle", country:"美国 USA", tz:"America/Los_Angeles"},
+  {zh:"拉斯维加斯", en:"Las Vegas", country:"美国 USA", tz:"America/Los_Angeles"},
+  {zh:"圣迭戈", en:"San Diego", country:"美国 USA", tz:"America/Los_Angeles"},
+  {zh:"檀香山", en:"Honolulu", country:"美国 USA", tz:"Pacific/Honolulu"},
+  {zh:"多伦多", en:"Toronto", country:"加拿大 Canada", tz:"America/Toronto"},
+  {zh:"蒙特利尔", en:"Montreal", country:"加拿大 Canada", tz:"America/Toronto"},
+  {zh:"温哥华", en:"Vancouver", country:"加拿大 Canada", tz:"America/Vancouver"},
+  {zh:"卡尔加里", en:"Calgary", country:"加拿大 Canada", tz:"America/Edmonton"},
+  {zh:"里约热内卢", en:"Rio de Janeiro", country:"巴西 Brazil", tz:"America/Sao_Paulo"},
+  {zh:"圣保罗", en:"São Paulo", country:"巴西 Brazil", tz:"America/Sao_Paulo"},
+  // Oceania
+  {zh:"悉尼", en:"Sydney", country:"澳大利亚 Australia", tz:"Australia/Sydney"},
+  {zh:"墨尔本", en:"Melbourne", country:"澳大利亚 Australia", tz:"Australia/Melbourne"},
+  {zh:"布里斯班", en:"Brisbane", country:"澳大利亚 Australia", tz:"Australia/Brisbane"},
+  {zh:"珀斯", en:"Perth", country:"澳大利亚 Australia", tz:"Australia/Perth"},
+  {zh:"阿德莱德", en:"Adelaide", country:"澳大利亚 Australia", tz:"Australia/Adelaide"},
+  {zh:"奥克兰", en:"Auckland", country:"新西兰 New Zealand", tz:"Pacific/Auckland"},
+  // ===== US States (major cities per state) =====
+  {zh:"伯明翰", en:"Birmingham Alabama AL", country:"美国 USA Alabama 阿拉巴马州", tz:"America/Chicago"},
+  {zh:"蒙哥马利", en:"Montgomery Alabama AL", country:"美国 USA Alabama 阿拉巴马州", tz:"America/Chicago"},
+  {zh:"安克雷奇", en:"Anchorage Alaska AK", country:"美国 USA Alaska 阿拉斯加州", tz:"America/Anchorage"},
+  {zh:"朱诺", en:"Juneau Alaska AK", country:"美国 USA Alaska 阿拉斯加州", tz:"America/Juneau"},
+  {zh:"图森", en:"Tucson Arizona AZ", country:"美国 USA Arizona 亚利桑那州", tz:"America/Phoenix"},
+  {zh:"小石城", en:"Little Rock Arkansas AR", country:"美国 USA Arkansas 阿肯色州", tz:"America/Chicago"},
+  {zh:"萨克拉门托", en:"Sacramento California CA", country:"美国 USA California 加利福尼亚州", tz:"America/Los_Angeles"},
+  {zh:"圣何塞(美)", en:"San Jose California CA", country:"美国 USA California 加利福尼亚州", tz:"America/Los_Angeles"},
+  {zh:"奥克兰(美)", en:"Oakland California CA", country:"美国 USA California 加利福尼亚州", tz:"America/Los_Angeles"},
+  {zh:"弗雷斯诺", en:"Fresno California CA", country:"美国 USA California 加利福尼亚州", tz:"America/Los_Angeles"},
+  {zh:"长滩", en:"Long Beach California CA", country:"美国 USA California 加利福尼亚州", tz:"America/Los_Angeles"},
+  {zh:"科罗拉多斯普林斯", en:"Colorado Springs Colorado CO", country:"美国 USA Colorado 科罗拉多州", tz:"America/Denver"},
+  {zh:"博尔德", en:"Boulder Colorado CO", country:"美国 USA Colorado 科罗拉多州", tz:"America/Denver"},
+  {zh:"哈特福德", en:"Hartford Connecticut CT", country:"美国 USA Connecticut 康涅狄格州", tz:"America/New_York"},
+  {zh:"纽黑文", en:"New Haven Connecticut CT", country:"美国 USA Connecticut 康涅狄格州", tz:"America/New_York"},
+  {zh:"威尔明顿", en:"Wilmington Delaware DE", country:"美国 USA Delaware 特拉华州", tz:"America/New_York"},
+  {zh:"多佛", en:"Dover Delaware DE", country:"美国 USA Delaware 特拉华州", tz:"America/New_York"},
+  {zh:"奥兰多", en:"Orlando Florida FL", country:"美国 USA Florida 佛罗里达州", tz:"America/New_York"},
+  {zh:"坦帕", en:"Tampa Florida FL", country:"美国 USA Florida 佛罗里达州", tz:"America/New_York"},
+  {zh:"杰克逊维尔", en:"Jacksonville Florida FL", country:"美国 USA Florida 佛罗里达州", tz:"America/New_York"},
+  {zh:"塔拉哈西", en:"Tallahassee Florida FL", country:"美国 USA Florida 佛罗里达州", tz:"America/New_York"},
+  {zh:"萨凡纳", en:"Savannah Georgia GA", country:"美国 USA Georgia 佐治亚州", tz:"America/New_York"},
+  {zh:"希洛", en:"Hilo Hawaii HI", country:"美国 USA Hawaii 夏威夷州", tz:"Pacific/Honolulu"},
+  {zh:"博伊西", en:"Boise Idaho ID", country:"美国 USA Idaho 爱达荷州", tz:"America/Boise"},
+  {zh:"斯普林菲尔德", en:"Springfield Illinois IL", country:"美国 USA Illinois 伊利诺伊州", tz:"America/Chicago"},
+  {zh:"印第安纳波利斯", en:"Indianapolis Indiana IN", country:"美国 USA Indiana 印第安纳州", tz:"America/Indiana/Indianapolis"},
+  {zh:"得梅因", en:"Des Moines Iowa IA", country:"美国 USA Iowa 爱荷华州", tz:"America/Chicago"},
+  {zh:"威奇托", en:"Wichita Kansas KS", country:"美国 USA Kansas 堪萨斯州", tz:"America/Chicago"},
+  {zh:"路易斯维尔", en:"Louisville Kentucky KY", country:"美国 USA Kentucky 肯塔基州", tz:"America/Kentucky/Louisville"},
+  {zh:"列克星敦", en:"Lexington Kentucky KY", country:"美国 USA Kentucky 肯塔基州", tz:"America/Kentucky/Louisville"},
+  {zh:"新奥尔良", en:"New Orleans Louisiana LA", country:"美国 USA Louisiana 路易斯安那州", tz:"America/Chicago"},
+  {zh:"巴吞鲁日", en:"Baton Rouge Louisiana LA", country:"美国 USA Louisiana 路易斯安那州", tz:"America/Chicago"},
+  {zh:"波特兰(缅因)", en:"Portland Maine ME", country:"美国 USA Maine 缅因州", tz:"America/New_York"},
+  {zh:"巴尔的摩", en:"Baltimore Maryland MD", country:"美国 USA Maryland 马里兰州", tz:"America/New_York"},
+  {zh:"安纳波利斯", en:"Annapolis Maryland MD", country:"美国 USA Maryland 马里兰州", tz:"America/New_York"},
+  {zh:"剑桥(美)", en:"Cambridge Massachusetts MA", country:"美国 USA Massachusetts 马萨诸塞州", tz:"America/New_York"},
+  {zh:"底特律", en:"Detroit Michigan MI", country:"美国 USA Michigan 密歇根州", tz:"America/Detroit"},
+  {zh:"大急流城", en:"Grand Rapids Michigan MI", country:"美国 USA Michigan 密歇根州", tz:"America/Detroit"},
+  {zh:"安娜堡", en:"Ann Arbor Michigan MI", country:"美国 USA Michigan 密歇根州", tz:"America/Detroit"},
+  {zh:"明尼阿波利斯", en:"Minneapolis Minnesota MN", country:"美国 USA Minnesota 明尼苏达州", tz:"America/Chicago"},
+  {zh:"圣保罗(美)", en:"Saint Paul Minnesota MN", country:"美国 USA Minnesota 明尼苏达州", tz:"America/Chicago"},
+  {zh:"杰克逊(MS)", en:"Jackson Mississippi MS", country:"美国 USA Mississippi 密西西比州", tz:"America/Chicago"},
+  {zh:"堪萨斯城", en:"Kansas City Missouri MO", country:"美国 USA Missouri 密苏里州", tz:"America/Chicago"},
+  {zh:"圣路易斯", en:"Saint Louis Missouri MO", country:"美国 USA Missouri 密苏里州", tz:"America/Chicago"},
+  {zh:"比林斯", en:"Billings Montana MT", country:"美国 USA Montana 蒙大拿州", tz:"America/Denver"},
+  {zh:"赫勒拿", en:"Helena Montana MT", country:"美国 USA Montana 蒙大拿州", tz:"America/Denver"},
+  {zh:"奥马哈", en:"Omaha Nebraska NE", country:"美国 USA Nebraska 内布拉斯加州", tz:"America/Chicago"},
+  {zh:"林肯", en:"Lincoln Nebraska NE", country:"美国 USA Nebraska 内布拉斯加州", tz:"America/Chicago"},
+  {zh:"里诺", en:"Reno Nevada NV", country:"美国 USA Nevada 内华达州", tz:"America/Los_Angeles"},
+  {zh:"卡森城", en:"Carson City Nevada NV", country:"美国 USA Nevada 内华达州", tz:"America/Los_Angeles"},
+  {zh:"曼彻斯特(NH)", en:"Manchester New Hampshire NH", country:"美国 USA New Hampshire 新罕布什尔州", tz:"America/New_York"},
+  {zh:"康科德", en:"Concord New Hampshire NH", country:"美国 USA New Hampshire 新罕布什尔州", tz:"America/New_York"},
+  {zh:"纽瓦克", en:"Newark New Jersey NJ", country:"美国 USA New Jersey 新泽西州", tz:"America/New_York"},
+  {zh:"泽西城", en:"Jersey City New Jersey NJ", country:"美国 USA New Jersey 新泽西州", tz:"America/New_York"},
+  {zh:"特伦顿", en:"Trenton New Jersey NJ", country:"美国 USA New Jersey 新泽西州", tz:"America/New_York"},
+  {zh:"阿尔伯克基", en:"Albuquerque New Mexico NM", country:"美国 USA New Mexico 新墨西哥州", tz:"America/Denver"},
+  {zh:"圣菲", en:"Santa Fe New Mexico NM", country:"美国 USA New Mexico 新墨西哥州", tz:"America/Denver"},
+  {zh:"水牛城", en:"Buffalo New York NY", country:"美国 USA New York 纽约州", tz:"America/New_York"},
+  {zh:"罗切斯特", en:"Rochester New York NY", country:"美国 USA New York 纽约州", tz:"America/New_York"},
+  {zh:"奥尔巴尼", en:"Albany New York NY", country:"美国 USA New York 纽约州", tz:"America/New_York"},
+  {zh:"夏洛特", en:"Charlotte North Carolina NC", country:"美国 USA North Carolina 北卡罗来纳州", tz:"America/New_York"},
+  {zh:"罗利", en:"Raleigh North Carolina NC", country:"美国 USA North Carolina 北卡罗来纳州", tz:"America/New_York"},
+  {zh:"格林斯伯勒", en:"Greensboro North Carolina NC", country:"美国 USA North Carolina 北卡罗来纳州", tz:"America/New_York"},
+  {zh:"法戈", en:"Fargo North Dakota ND", country:"美国 USA North Dakota 北达科他州", tz:"America/Chicago"},
+  {zh:"俾斯麦", en:"Bismarck North Dakota ND", country:"美国 USA North Dakota 北达科他州", tz:"America/Chicago"},
+  {zh:"哥伦布", en:"Columbus Ohio OH", country:"美国 USA Ohio 俄亥俄州", tz:"America/New_York"},
+  {zh:"克利夫兰", en:"Cleveland Ohio OH", country:"美国 USA Ohio 俄亥俄州", tz:"America/New_York"},
+  {zh:"辛辛那提", en:"Cincinnati Ohio OH", country:"美国 USA Ohio 俄亥俄州", tz:"America/New_York"},
+  {zh:"托莱多", en:"Toledo Ohio OH", country:"美国 USA Ohio 俄亥俄州", tz:"America/New_York"},
+  {zh:"俄克拉何马城", en:"Oklahoma City Oklahoma OK", country:"美国 USA Oklahoma 俄克拉何马州", tz:"America/Chicago"},
+  {zh:"塔尔萨", en:"Tulsa Oklahoma OK", country:"美国 USA Oklahoma 俄克拉何马州", tz:"America/Chicago"},
+  {zh:"波特兰(俄勒冈)", en:"Portland Oregon OR", country:"美国 USA Oregon 俄勒冈州", tz:"America/Los_Angeles"},
+  {zh:"塞勒姆", en:"Salem Oregon OR", country:"美国 USA Oregon 俄勒冈州", tz:"America/Los_Angeles"},
+  {zh:"匹兹堡", en:"Pittsburgh Pennsylvania PA", country:"美国 USA Pennsylvania 宾夕法尼亚州", tz:"America/New_York"},
+  {zh:"哈里斯堡", en:"Harrisburg Pennsylvania PA", country:"美国 USA Pennsylvania 宾夕法尼亚州", tz:"America/New_York"},
+  {zh:"普罗维登斯", en:"Providence Rhode Island RI", country:"美国 USA Rhode Island 罗德岛州", tz:"America/New_York"},
+  {zh:"查尔斯顿(SC)", en:"Charleston South Carolina SC", country:"美国 USA South Carolina 南卡罗来纳州", tz:"America/New_York"},
+  {zh:"哥伦比亚(SC)", en:"Columbia South Carolina SC", country:"美国 USA South Carolina 南卡罗来纳州", tz:"America/New_York"},
+  {zh:"苏福尔斯", en:"Sioux Falls South Dakota SD", country:"美国 USA South Dakota 南达科他州", tz:"America/Chicago"},
+  {zh:"皮尔", en:"Pierre South Dakota SD", country:"美国 USA South Dakota 南达科他州", tz:"America/Chicago"},
+  {zh:"纳什维尔", en:"Nashville Tennessee TN", country:"美国 USA Tennessee 田纳西州", tz:"America/Chicago"},
+  {zh:"孟菲斯", en:"Memphis Tennessee TN", country:"美国 USA Tennessee 田纳西州", tz:"America/Chicago"},
+  {zh:"诺克斯维尔", en:"Knoxville Tennessee TN", country:"美国 USA Tennessee 田纳西州", tz:"America/New_York"},
+  {zh:"奥斯汀", en:"Austin Texas TX", country:"美国 USA Texas 德克萨斯州", tz:"America/Chicago"},
+  {zh:"圣安东尼奥", en:"San Antonio Texas TX", country:"美国 USA Texas 德克萨斯州", tz:"America/Chicago"},
+  {zh:"埃尔帕索", en:"El Paso Texas TX", country:"美国 USA Texas 德克萨斯州", tz:"America/Denver"},
+  {zh:"沃思堡", en:"Fort Worth Texas TX", country:"美国 USA Texas 德克萨斯州", tz:"America/Chicago"},
+  {zh:"盐湖城", en:"Salt Lake City Utah UT", country:"美国 USA Utah 犹他州", tz:"America/Denver"},
+  {zh:"普罗沃", en:"Provo Utah UT", country:"美国 USA Utah 犹他州", tz:"America/Denver"},
+  {zh:"伯灵顿", en:"Burlington Vermont VT", country:"美国 USA Vermont 佛蒙特州", tz:"America/New_York"},
+  {zh:"蒙彼利埃", en:"Montpelier Vermont VT", country:"美国 USA Vermont 佛蒙特州", tz:"America/New_York"},
+  {zh:"里士满", en:"Richmond Virginia VA", country:"美国 USA Virginia 弗吉尼亚州", tz:"America/New_York"},
+  {zh:"弗吉尼亚比奇", en:"Virginia Beach Virginia VA", country:"美国 USA Virginia 弗吉尼亚州", tz:"America/New_York"},
+  {zh:"诺福克", en:"Norfolk Virginia VA", country:"美国 USA Virginia 弗吉尼亚州", tz:"America/New_York"},
+  {zh:"斯波坎", en:"Spokane Washington WA", country:"美国 USA Washington 华盛顿州", tz:"America/Los_Angeles"},
+  {zh:"塔科马", en:"Tacoma Washington WA", country:"美国 USA Washington 华盛顿州", tz:"America/Los_Angeles"},
+  {zh:"奥林匹亚", en:"Olympia Washington WA", country:"美国 USA Washington 华盛顿州", tz:"America/Los_Angeles"},
+  {zh:"查尔斯顿(WV)", en:"Charleston West Virginia WV", country:"美国 USA West Virginia 西弗吉尼亚州", tz:"America/New_York"},
+  {zh:"密尔沃基", en:"Milwaukee Wisconsin WI", country:"美国 USA Wisconsin 威斯康星州", tz:"America/Chicago"},
+  {zh:"麦迪逊", en:"Madison Wisconsin WI", country:"美国 USA Wisconsin 威斯康星州", tz:"America/Chicago"},
+  {zh:"夏延", en:"Cheyenne Wyoming WY", country:"美国 USA Wyoming 怀俄明州", tz:"America/Denver"},
+  {zh:"杰克逊(WY)", en:"Jackson Wyoming WY", country:"美国 USA Wyoming 怀俄明州", tz:"America/Denver"},
+  // More Canada
+  {zh:"渥太华", en:"Ottawa", country:"加拿大 Canada", tz:"America/Toronto"},
+  {zh:"魁北克城", en:"Quebec City", country:"加拿大 Canada", tz:"America/Toronto"},
+  {zh:"埃德蒙顿", en:"Edmonton", country:"加拿大 Canada", tz:"America/Edmonton"},
+  {zh:"温尼伯", en:"Winnipeg", country:"加拿大 Canada", tz:"America/Winnipeg"},
+  {zh:"哈利法克斯", en:"Halifax", country:"加拿大 Canada", tz:"America/Halifax"},
+  // More China
+  {zh:"天津", en:"Tianjin", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"南京", en:"Nanjing", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"武汉", en:"Wuhan", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"青岛", en:"Qingdao", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"大连", en:"Dalian", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"宁波", en:"Ningbo", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"厦门", en:"Xiamen", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"苏州", en:"Suzhou", country:"中国 China", tz:"Asia/Shanghai"},
+  {zh:"义乌", en:"Yiwu", country:"中国 China", tz:"Asia/Shanghai"},
+  // More Asia cities
+  {zh:"横滨", en:"Yokohama", country:"日本 Japan", tz:"Asia/Tokyo"},
+  {zh:"京都", en:"Kyoto", country:"日本 Japan", tz:"Asia/Tokyo"},
+  {zh:"神户", en:"Kobe", country:"日本 Japan", tz:"Asia/Tokyo"},
+  {zh:"大田", en:"Daejeon", country:"韩国 South Korea", tz:"Asia/Seoul"},
+  // More Europe cities
+  {zh:"格拉斯哥", en:"Glasgow", country:"英国 UK", tz:"Europe/London"},
+  {zh:"尼斯", en:"Nice", country:"法国 France", tz:"Europe/Paris"},
+  {zh:"图卢兹", en:"Toulouse", country:"法国 France", tz:"Europe/Paris"},
+  {zh:"波尔多", en:"Bordeaux", country:"法国 France", tz:"Europe/Paris"},
+  {zh:"都灵", en:"Turin Torino", country:"意大利 Italy", tz:"Europe/Rome"},
+  {zh:"佛罗伦萨", en:"Florence Firenze", country:"意大利 Italy", tz:"Europe/Rome"},
+  {zh:"瓦伦西亚", en:"Valencia", country:"西班牙 Spain", tz:"Europe/Madrid"},
+  {zh:"塞维利亚", en:"Seville Sevilla", country:"西班牙 Spain", tz:"Europe/Madrid"},
+  {zh:"波尔图", en:"Porto", country:"葡萄牙 Portugal", tz:"Europe/Lisbon"},
+  {zh:"海牙", en:"The Hague", country:"荷兰 Netherlands", tz:"Europe/Amsterdam"},
+  {zh:"巴塞尔", en:"Basel", country:"瑞士 Switzerland", tz:"Europe/Zurich"},
+  {zh:"萨尔茨堡", en:"Salzburg", country:"奥地利 Austria", tz:"Europe/Vienna"},
+  {zh:"克拉科夫", en:"Krakow Kraków", country:"波兰 Poland", tz:"Europe/Warsaw"},
+  {zh:"塞萨洛尼基", en:"Thessaloniki", country:"希腊 Greece", tz:"Europe/Athens"},
+  {zh:"喀山", en:"Kazan", country:"俄罗斯 Russia", tz:"Europe/Moscow"},
+  {zh:"索契", en:"Sochi", country:"俄罗斯 Russia", tz:"Europe/Moscow"},
+  {zh:"伊尔库茨克", en:"Irkutsk", country:"俄罗斯 Russia", tz:"Asia/Irkutsk"},
+  // More Middle East
+  {zh:"安卡拉", en:"Ankara", country:"土耳其 Turkey", tz:"Europe/Istanbul"},
+  {zh:"布尔萨", en:"Bursa", country:"土耳其 Turkey", tz:"Europe/Istanbul"},
+  {zh:"麦地那", en:"Medina", country:"沙特阿拉伯 Saudi Arabia", tz:"Asia/Riyadh"},
+  // More Australia
+  {zh:"堪培拉", en:"Canberra", country:"澳大利亚 Australia", tz:"Australia/Sydney"},
+  {zh:"霍巴特", en:"Hobart", country:"澳大利亚 Australia", tz:"Australia/Hobart"},
+  {zh:"达尔文", en:"Darwin", country:"澳大利亚 Australia", tz:"Australia/Darwin"},
+  {zh:"黄金海岸", en:"Gold Coast", country:"澳大利亚 Australia", tz:"Australia/Brisbane"},
+  {zh:"基督城", en:"Christchurch", country:"新西兰 New Zealand", tz:"Pacific/Auckland"},
+  // More Latin America
+  {zh:"巴西利亚", en:"Brasília", country:"巴西 Brazil", tz:"America/Sao_Paulo"},
+  {zh:"萨尔瓦多(巴西)", en:"Salvador Bahia", country:"巴西 Brazil", tz:"America/Bahia"},
+  {zh:"累西腓", en:"Recife", country:"巴西 Brazil", tz:"America/Recife"},
+  {zh:"马瑙斯", en:"Manaus", country:"巴西 Brazil", tz:"America/Manaus"},
+  {zh:"科尔多瓦", en:"Cordoba", country:"阿根廷 Argentina", tz:"America/Argentina/Cordoba"},
+  {zh:"瓜达拉哈拉", en:"Guadalajara", country:"墨西哥 Mexico", tz:"America/Mexico_City"},
+  {zh:"蒙特雷", en:"Monterrey", country:"墨西哥 Mexico", tz:"America/Monterrey"},
+  {zh:"坎昆", en:"Cancun", country:"墨西哥 Mexico", tz:"America/Cancun"},
+];
+
+// Build searchable entries
+const ENTRIES = [];
+COUNTRIES.forEach(c => {
+  ENTRIES.push({
+    type:"country",
+    label:`${c.zh} ${c.en}`,
+    sub:`首都 Capital: ${c.capital}`,
+    search:(c.zh + " " + c.en).toLowerCase(),
+    tz:c.tz
+  });
+});
+CITIES.forEach(c => {
+  ENTRIES.push({
+    type:"city",
+    label:`${c.zh} ${c.en}`,
+    sub:c.country,
+    search:(c.zh + " " + c.en + " " + c.country).toLowerCase(),
+    tz:c.tz
+  });
+});
+
+// ===== Combobox setup =====
+function setupCombo(inputId, listId, onSelect) {
+  const input = document.getElementById(inputId);
+  const list = document.getElementById(listId);
+  let highlight = 0;
+  let currentItems = [];
+
+  function render(query) {
+    const q = query.trim().toLowerCase();
+    let items;
+    if (!q) {
+      items = ENTRIES.slice(0, 50);
+    } else {
+      // Prioritize startsWith matches
+      const starts = ENTRIES.filter(e => e.search.split(" ").some(w => w.startsWith(q)));
+      const contains = ENTRIES.filter(e => !starts.includes(e) && e.search.includes(q));
+      items = [...starts, ...contains].slice(0, 50);
+    }
+    currentItems = items;
+    highlight = 0;
+    list.innerHTML = items.map((e, i) => `
+      <div class="combo-item ${i===0?'highlight':''}" data-idx="${i}">
+        <div>
+          <div>${e.label}</div>
+          <div style="font-size:11px;color:#718096;">${e.sub}</div>
+        </div>
+        <span class="tag ${e.type}">${e.type==='country'?'国家':'城市'}</span>
+      </div>
+    `).join('') || '<div class="combo-item" style="color:#a0aec0;">无结果 No results</div>';
+    list.classList.add('open');
+  }
+
+  function select(item) {
+    input.value = item.label;
+    input.dataset.tz = item.tz;
+    input.dataset.sub = item.sub;
+    list.classList.remove('open');
+    onSelect(item);
+  }
+
+  input.addEventListener('focus', () => render(input.value));
+  input.addEventListener('input', () => render(input.value));
+  input.addEventListener('keydown', e => {
+    if (!list.classList.contains('open')) return;
+    const items = list.querySelectorAll('.combo-item[data-idx]');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      highlight = Math.min(highlight + 1, items.length - 1);
+      updateHighlight(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      highlight = Math.max(highlight - 1, 0);
+      updateHighlight(items);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (currentItems[highlight]) select(currentItems[highlight]);
+    } else if (e.key === 'Escape') {
+      list.classList.remove('open');
+    }
+  });
+
+  function updateHighlight(items) {
+    items.forEach((el, i) => el.classList.toggle('highlight', i === highlight));
+    const el = items[highlight];
+    if (el) el.scrollIntoView({block:'nearest'});
+  }
+
+  list.addEventListener('mousedown', e => {
+    const el = e.target.closest('.combo-item[data-idx]');
+    if (el) {
+      e.preventDefault();
+      select(currentItems[+el.dataset.idx]);
+    }
+  });
+
+  document.addEventListener('click', e => {
+    if (!input.contains(e.target) && !list.contains(e.target)) {
+      list.classList.remove('open');
+    }
+  });
+
+  // Programmatic set
+  return {
+    set(tz, label, sub) {
+      input.value = label;
+      input.dataset.tz = tz;
+      input.dataset.sub = sub || '';
+    },
+    getTz() { return input.dataset.tz; }
+  };
+}
+
+const dateA = document.getElementById('dateA');
+const timeA = document.getElementById('timeA');
+const resultTime = document.getElementById('resultTime');
+const resultDate = document.getElementById('resultDate');
+const resultTz = document.getElementById('resultTz');
+const hintA = document.getElementById('hintA');
+const hintB = document.getElementById('hintB');
+
+const comboA = setupCombo('inputA', 'listA', () => { updateHint('A'); convert(); });
+const comboB = setupCombo('inputB', 'listB', () => { updateHint('B'); convert(); });
+
+function updateHint(side) {
+  const input = document.getElementById('input' + side);
+  const hint = side === 'A' ? hintA : hintB;
+  hint.textContent = input.dataset.sub || '';
+}
+
+// Defaults
+comboA.set("Asia/Shanghai", "中国 China", "首都 Capital: Beijing 北京");
+comboB.set("America/New_York", "美国 USA", "首都 Capital: Washington DC 华盛顿");
+updateHint('A'); updateHint('B');
+
+// ===== Time conversion =====
+function pad(n){ return String(n).padStart(2,'0'); }
+
+function getPartsInTz(date, tz) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false, weekday:'long'
+  });
+  const parts = {};
+  fmt.formatToParts(date).forEach(p => { parts[p.type] = p.value; });
+  return {
+    year: +parts.year, month: +parts.month, day: +parts.day,
+    hour: +parts.hour === 24 ? 0 : +parts.hour,
+    minute: +parts.minute, second: +parts.second,
+    weekday: parts.weekday
+  };
+}
+
+function zonedTimeToUTC(y, mo, d, h, mi, tz) {
+  const utcGuess = Date.UTC(y, mo - 1, d, h, mi, 0);
+  const parts = getPartsInTz(new Date(utcGuess), tz);
+  const asUTC = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+  const diff = asUTC - utcGuess;
+  return new Date(utcGuess - diff);
+}
+
+function getTzOffsetString(date, tz) {
+  try {
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, timeZoneName:'shortOffset'
+    });
+    const parts = fmt.formatToParts(date);
+    const tzPart = parts.find(p => p.type === 'timeZoneName');
+    return tzPart ? tzPart.value : '';
+  } catch(e) { return ''; }
+}
+
+const WEEKDAY_CN = {
+  Monday:"星期一", Tuesday:"星期二", Wednesday:"星期三",
+  Thursday:"星期四", Friday:"星期五", Saturday:"星期六", Sunday:"星期日"
+};
+
+function initNow() {
+  const now = new Date();
+  const parts = getPartsInTz(now, comboA.getTz());
+  dateA.value = `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`;
+  timeA.value = `${pad(parts.hour)}:${pad(parts.minute)}`;
+}
+
+function convert() {
+  if (!dateA.value || !timeA.value) return;
+  const tzA = comboA.getTz();
+  const tzB = comboB.getTz();
+  if (!tzA || !tzB) return;
+  const [y, mo, d] = dateA.value.split('-').map(Number);
+  const [h, mi] = timeA.value.split(':').map(Number);
+  const utc = zonedTimeToUTC(y, mo, d, h, mi, tzA);
+  const target = getPartsInTz(utc, tzB);
+  const offset = getTzOffsetString(utc, tzB);
+
+  resultTime.textContent = `${pad(target.hour)}:${pad(target.minute)}`;
+  resultDate.textContent = `${target.year}-${pad(target.month)}-${pad(target.day)} ${WEEKDAY_CN[target.weekday] || target.weekday}`;
+  const bLabel = document.getElementById('inputB').value;
+  resultTz.textContent = `${bLabel} · ${offset}`;
+}
+
+[dateA, timeA].forEach(el => {
+  el.addEventListener('input', convert);
+  el.addEventListener('change', convert);
+});
+
+document.getElementById('swapBtn').addEventListener('click', () => {
+  if (!dateA.value || !timeA.value) return;
+  const tzA = comboA.getTz();
+  const tzB = comboB.getTz();
+  const [y, mo, d] = dateA.value.split('-').map(Number);
+  const [h, mi] = timeA.value.split(':').map(Number);
+  const utc = zonedTimeToUTC(y, mo, d, h, mi, tzA);
+  const target = getPartsInTz(utc, tzB);
+
+  const inputA = document.getElementById('inputA');
+  const inputB = document.getElementById('inputB');
+  const aLabel = inputA.value, aSub = inputA.dataset.sub || '';
+  const bLabel = inputB.value, bSub = inputB.dataset.sub || '';
+
+  comboA.set(tzB, bLabel, bSub);
+  comboB.set(tzA, aLabel, aSub);
+  dateA.value = `${target.year}-${pad(target.month)}-${pad(target.day)}`;
+  timeA.value = `${pad(target.hour)}:${pad(target.minute)}`;
+  updateHint('A'); updateHint('B');
+  convert();
+});
+
+// Quick-pick chips
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const side = chip.dataset.target;
+    const tz = chip.dataset.tz;
+    const label = chip.dataset.label;
+    // Find sub from COUNTRIES
+    const entry = ENTRIES.find(e => e.tz === tz && e.type === 'country');
+    const sub = entry ? entry.sub : '';
+    const parts = label.split('(');
+    const mainLabel = parts[0].trim();
+    if (side === 'A') comboA.set(tz, mainLabel, sub);
+    else comboB.set(tz, mainLabel, sub);
+    updateHint(side);
+    convert();
+  });
+});
+
+initNow();
+convert();
+</script>
+</body>
+</html>
